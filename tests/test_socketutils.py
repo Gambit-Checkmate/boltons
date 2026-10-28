@@ -449,3 +449,24 @@ def test_netstring_read_ns_timeout_covers_payload():
         with pytest.raises(Timeout):
             ns.read_ns(timeout=0.05)
         assert time.time() - start < 2
+
+@pytest.mark.parametrize('method', ['recv', 'recv_size', 'peek'])
+@pytest.mark.parametrize('buffer', [b'', b'buffered'])
+@pytest.mark.parametrize('size,error', [(-1, ValueError), (1.5, TypeError)])
+def test_invalid_read_size_preserves_live_socket(method, buffer, size, error):
+    """Invalid lengths must not consume bytes from either buffering layer."""
+    left, right = socket.socketpair()
+    with left, right:
+        left.settimeout(0.25)
+        stream = BufferedSocket(left, timeout=1)
+        stream.rbuf = buffer
+        right.sendall(b'queued')
+
+        with pytest.raises(error):
+            getattr(stream, method)(size)
+
+        assert stream.getrecvbuffer() == buffer
+        assert left.gettimeout() == 0.25
+        # MSG_PEEK checks the kernel queue independently of the wrapper.
+        assert left.recv(6, socket.MSG_PEEK) == b'queued'
+        assert stream.recv_size(len(buffer) + 6) == buffer + b'queued'
