@@ -450,6 +450,7 @@ def test_netstring_read_ns_timeout_covers_payload():
             ns.read_ns(timeout=0.05)
         assert time.time() - start < 2
 
+
 @pytest.mark.parametrize('method', ['recv', 'recv_size', 'peek'])
 @pytest.mark.parametrize('buffer', [b'', b'buffered'])
 @pytest.mark.parametrize('size,error', [(-1, ValueError), (1.5, TypeError)])
